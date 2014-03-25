@@ -2,7 +2,7 @@
 import curses
 import random
 from itertools import repeat
-from operator import itemgetter
+from operator import itemgetter 
 import pickle
 import time
 from math import ceil
@@ -28,7 +28,8 @@ paran = "()67890^"
 suedoise = "åÅäÄöÖ"
 
 #charset = 3*homerow+4*lower+capital+2*digits+raised+4*paran+suedoise 
-charset = 3*homerow+4*lower+2*capital+2*digits+raised#+4*paran+suedoise
+basechars = 3*homerow+4*lower+2*capital+2*digits+raised#+4*paran+suedoise
+charset = set(basechars)
 
 def cycle(string, ch, maxlen): 
     """ 
@@ -41,37 +42,46 @@ def cycle(string, ch, maxlen):
     return string
 
 price = 3
-linelen = 15
-inital_miss = 0.3
+decay = 0.2
+initial_val = 0.5
+
+class Returner:
+    def __init__(self, val):
+        self.val = val
+    def __call__(self):
+        return self.val
+
 
 class Scores:
     def __init__(self):
         self.misses = defaultdict(int)
         self.attempts = defaultdict(int) 
-        self.hitline = defaultdict(str)
+        # weighted sliding average of misses per attempt
+        self.wh_avg = defaultdict(lambda: initial_val)
         self.highscore = 1000.0
         
-    def __setstate__(self,dict):
-        self.__init__()
-        self.__dict__.update(dict)
+    def __setstate__(self,dic):
+        self.__dict__.update(dic)
+        self.wh_avg = defaultdict(lambda: initial_val)
+        self.wh_avg.update(dic["wh_avg"])
+
+    def __getstate__(self):
+        dic = self.__dict__.copy()
+        dic["wh_avg"] = dict(self.wh_avg)
+        return dic
 
     def add_hit(self,ch,misses):
         self.attempts[ch] += 1
         self.misses[ch] += misses
-        hitchr = str(min(misses,9))
-        self.hitline[ch] = cycle(self.hitline[ch], hitchr, linelen)
+        self.wh_avg[ch] = (1-decay)*self.wh_avg[ch]+decay*misses
 
     def game_score(self, score):
         if self.highscore > score:
             self.highscore = score
 
     def get_misscount(self):
-        misses = {}
-        for char in set(charset):
-            ch = ord(char)
-            hitline = cycle(self.hitline[ch], "", linelen)
-            misses[ch] = sum(int(x) for x in hitline)+ceil(inital_miss*(linelen-len(hitline)))
-        return sorted(misses.items(),key=itemgetter(1),reverse=True)
+        misses = [(ch, self.wh_avg[ch]) for ch in charset]
+        return sorted(misses,key=itemgetter(1),reverse=True)
 
     def get_worst(self):
         ratio = { ch: misses/(self.attempts.get(ch,1)+1.0) for (ch,misses) in self.misses.items()}
@@ -80,7 +90,7 @@ class Scores:
     def display(self, scr):
         scr.addstr(15,5, "highscore: {:.5}".format(self.highscore))
         worst = self.get_misscount()
-        worststr = "".join(chr(e) for (e,_) in worst) 
+        worststr = "".join(e for (e,_) in worst) 
         scr.addstr(16,5,worststr[:min(20,len(worststr))])
 
     
@@ -114,10 +124,10 @@ class game:
     def genline(self, length):
         charseq = []
         for ch, misses in self.scores.get_misscount():
-            charseq.extend((misses+1)*chr(ch))
+            charseq.extend(int(20*misses)*ch)
         def choose_char():
             if random.random() < 0.5:
-                return random.choice(charset)
+                return random.choice(basechars)
             else:
                 return random.choice(charseq)
         return ''.join(choose_char() for _ in range(length))
@@ -142,7 +152,7 @@ class game:
                     charmiss +=1
 
             self.typed += 1
-            self.scores.add_hit(ch,charmiss)
+            self.scores.add_hit(char,charmiss)
         self.update()
 
     def run_game(self):
@@ -164,17 +174,15 @@ def main(scr):
     except Exception:
         scores = Scores()
 
-    char = None
     try:
         game(scr,scores).run_game()
     finally:
+
+        from IPython import embed
         pickle.dump(scores,open(filename,'wb'))
 
-#from IPython import embed
-#embed()
 try:
     curses.wrapper(main)
 finally:
-
-    print([(chr(x), y) for (x,y) in scores.get_misscount()])
+    print([(x, y) for (x,y) in scores.get_misscount()])
 
