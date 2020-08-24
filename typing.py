@@ -23,12 +23,13 @@ capital = codes2str(range(ord('A'),ord('Z')+1))
 
 homerow = "aoeuidhtns"
 digits = "0123456789"
-raised = "!@#$%^&*(){}[]'\"=+\\|-_?.,;:~"
+raised = "!@#$%^&*(){}[]<>'\"=+\\|/-_?.,;:~"
+ctrls = " \n" + chr(1) + chr(4)
 paran = "()67890^"
 suedoise = "åÅäÄöÖ"
 
-#charset = 3*homerow+4*lower+capital+2*digits+raised+4*paran+suedoise 
-basechars = 3*homerow+4*lower+2*capital+2*digits+raised#+4*paran+suedoise
+#charset = 3*homerow+4*lower+capital+2*digits+raised+4*paran+suedoise
+basechars = 3*homerow+4*lower+2*capital+2*digits+raised+ctrls+suedoise
 charset = set(basechars)
 
 def cycle(string, ch, maxlen): 
@@ -99,8 +100,21 @@ class game:
         self.scr = screen
         self.scores = scores
 
-    def line(self,ypos, msg):
-        self.scr.addstr(10+ypos,5,msg)
+    def line(self,xpos, ypos, msg):
+        for char in msg:
+            attr = curses.A_NORMAL
+            if char == "\n":
+                char = " "
+                attr = curses.color_pair(2)
+            elif char == " ":
+                attr = curses.A_STANDOUT
+            elif ord(char) < ord(" "):
+                char = chr(ord(char)-1+ord("A"))
+                attr = curses.color_pair(1)
+            elif char in suedoise:
+                attr = curses.color_pair(3)
+            self.scr.addstr(ypos,xpos,char,attr)
+            xpos += 1
 
     def getch(self,*a): # utf-8 > unicode HAX
         ch = self.scr.getch(*a)
@@ -113,13 +127,13 @@ class game:
         return ord(bytes((ch,ch2)).decode(code))
 
     def update(self):
-        self.line(0,"misses: {}".format(self.misses))
+        self.scr.addstr(10, 5,"misses: {}".format(self.misses))
         t = time.time() - self.tstart
-        self.line(1,"time: {}".format(int(t)))
+        self.scr.addstr(11, 5,"time: {}".format(int(t)))
         score = t+price*self.misses
         if self.typed > 0:
             self.spc = score/self.typed
-            self.line(2,"spc: {:.3f}".format(self.spc))
+            self.scr.addstr(12, 5,"spc: {:.3f}".format(self.spc))
 
     def genline(self, length):
         charseq = []
@@ -135,7 +149,7 @@ class game:
 
     def runline(self, line):
         x,y = 3,1
-        self.scr.addstr(y+1,x,line)
+        self.line(3,2,line)
         pos = 0
         for pos,char in enumerate(line):
             charmiss = 0
@@ -167,6 +181,11 @@ class game:
         self.scr.getch()
 
 def main(scr):
+    curses.start_color()
+    curses.use_default_colors()
+    curses.init_pair(1,0,2)
+    curses.init_pair(2,0,1)
+    curses.init_pair(3,2,-1)
     filename = "typing_scores"
     global scores
     try:
