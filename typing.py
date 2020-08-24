@@ -27,6 +27,8 @@ raised = "!@#$%^&*(){}[]<>'\"=+\\|/-_?.,;:~"
 ctrls = " \n" + ''.join(chr(ord(x)-ord("A")+1) for x in "ABDEFGKLNOPRTUVXY") # FIXME: <c-h> vs <bs>
 paran = "()67890^"
 suedoise = "åÅäÄöÖüÜß" # NB: special cased to be colored
+hints = { "$": "s-,", "^": "s-.", "%": "A-,", "^": "A-.",
+        "Ä": "+\\?", "Å":"P,*", "Ö": "`'1", "f": "e+t", "F": "e+h"}
 
 #charset = 3*homerow+4*lower+capital+2*digits+raised+4*paran+suedoise
 basechars = 3*homerow+4*lower+2*capital+2*digits+raised+ctrls+suedoise
@@ -103,7 +105,7 @@ class game:
     def line(self,xpos, ypos, msg):
         for char in msg:
             attr = curses.A_NORMAL
-            extra = None
+            extra = " "
             if char == "\n":
                 char = " "
                 attr = curses.color_pair(2)
@@ -115,13 +117,8 @@ class game:
                 extra = "C"
             elif char in suedoise:
                 attr = curses.color_pair(3)
-            elif char in "$_":
-                extra = "S"
-            elif char in "%^":
-                extra = "a"
             self.scr.addstr(ypos,xpos,char,attr)
-            if extra is not None:
-                self.scr.addstr(ypos-1,xpos,extra, curses.A_NORMAL)
+            self.scr.addstr(ypos-1,xpos,extra, curses.A_NORMAL)
             xpos += 1
 
     def getch(self,*a): # utf-8 > unicode HAX
@@ -132,7 +129,10 @@ class game:
         if not 127 < ch2 < 256:
             self.scr.ungetch(ch2)
             return ch
-        return ord(bytes((ch,ch2)).decode(code))
+        try:
+            return ord(bytes((ch,ch2)).decode(code))
+        except UnicodeDecodeError:
+            return "�"
 
     def update(self):
         self.scr.addstr(10, 5,"misses: {}".format(self.misses))
@@ -154,6 +154,14 @@ class game:
                 return random.choice(charseq)
         return ''.join(choose_char() for _ in range(length))
 
+    def hint(self, ch):
+        hint = "x-x"
+        if ch in hints:
+            hint = hints[ch]
+        elif ord(ch) < ord(" "):
+            hint = "C-" + chr(ord(ch)-1+ord("A"))
+        self.scr.addstr(8, 5, "protip: " + hint)
+
 
     def runline(self, line):
         x,y = 3,1
@@ -162,6 +170,7 @@ class game:
         for pos,char in enumerate(line):
             charmiss = 0
             ch = ord(char)
+            self.hint("x")
             while True:
                 self.update()
                 trych = self.getch(y,x+pos)
@@ -172,6 +181,7 @@ class game:
                 else:
                     self.misses +=1
                     charmiss +=1
+                    self.hint(char)
 
             self.typed += 1
             self.scores.add_hit(char,charmiss)
