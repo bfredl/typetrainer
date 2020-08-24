@@ -24,9 +24,9 @@ capital = codes2str(range(ord('A'),ord('Z')+1))
 homerow = "aoeuidhtns"
 digits = "0123456789"
 raised = "!@#$%^&*(){}[]<>'\"=+\\|/-_?.,;:~"
-ctrls = " \n" + chr(1) + chr(4)
+ctrls = " \n" + ''.join(chr(ord(x)-ord("A")+1) for x in "ABDEFGKLNOPRTUVXY") # FIXME: <c-h> vs <bs>
 paran = "()67890^"
-suedoise = "åÅäÄöÖ"
+suedoise = "åÅäÄöÖüÜß" # NB: special cased to be colored
 
 #charset = 3*homerow+4*lower+capital+2*digits+raised+4*paran+suedoise
 basechars = 3*homerow+4*lower+2*capital+2*digits+raised+ctrls+suedoise
@@ -103,6 +103,7 @@ class game:
     def line(self,xpos, ypos, msg):
         for char in msg:
             attr = curses.A_NORMAL
+            extra = None
             if char == "\n":
                 char = " "
                 attr = curses.color_pair(2)
@@ -111,9 +112,16 @@ class game:
             elif ord(char) < ord(" "):
                 char = chr(ord(char)-1+ord("A"))
                 attr = curses.color_pair(1)
+                extra = "C"
             elif char in suedoise:
                 attr = curses.color_pair(3)
+            elif char in "$_":
+                extra = "S"
+            elif char in "%^":
+                extra = "a"
             self.scr.addstr(ypos,xpos,char,attr)
+            if extra is not None:
+                self.scr.addstr(ypos-1,xpos,extra, curses.A_NORMAL)
             xpos += 1
 
     def getch(self,*a): # utf-8 > unicode HAX
