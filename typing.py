@@ -221,5 +221,6 @@ def main(scr):
 try:
     curses.wrapper(main)
 finally:
-    print([(x, y) for (x,y) in scores.get_misscount()])
+    print([x for (x,y) in scores.get_misscount()][:10])
+    print([x for (x,y) in scores.get_worst()][:10])
 
