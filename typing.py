@@ -31,7 +31,7 @@ hints = { "$": "s-,", "^": "s-.", "%": "A-,", "^": "A-.",
         "Ä": "+\\?", "Å":"P,*", "Ö": "`'1", "f": "e+t", "F": "e+h"}
 
 #charset = 3*homerow+4*lower+capital+2*digits+raised+4*paran+suedoise
-basechars = 3*homerow+4*lower+2*capital+2*digits+raised+ctrls+suedoise
+basechars = 3*homerow+6*lower+3*capital+2*digits+2*raised+ctrls+suedoise
 charset = set(basechars)
 
 def cycle(string, ch, maxlen): 
